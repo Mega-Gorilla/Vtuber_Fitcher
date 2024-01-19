@@ -1,10 +1,65 @@
 from googleapiclient.discovery import build
 from datetime import datetime, timedelta
+from pymongo import MongoClient
 import os,sys
+import pytz
 
 class Youtube_API_settings:
     youtube_api_key = os.getenv("GOOGLE_API_KEY")
     youtube = build('youtube', 'v3', developerKey=youtube_api_key)
+
+def get_cost():
+    client = MongoClient()
+    db = client["Youtube_DB"]
+    collection = db["info"]
+    static_cost = collection.find_one({"name":"youtubeAPI_info"})
+    static_cost = static_cost['cost']
+    return static_cost
+
+def add_cost(cost):
+    client = MongoClient()
+    db = client["Youtube_DB"]
+    collection = db["info"]
+
+    API_info = collection.find_one({"name":"youtubeAPI_info"})
+    static_cost = API_info['cost']
+    date_str = API_info['date']
+    date_object = datetime.strptime(date_str, "%Y-%m-%d").date()
+    pacific_tz = pytz.timezone('America/Los_Angeles')
+    current_datetime = datetime.now(pacific_tz)
+    today_date = current_datetime.date()
+
+    #日付が変わっていない場合は、加算
+    if date_object == today_date:
+        cost = static_cost + cost
+
+    today_date_str = today_date.isoformat()
+
+    new_values = {"$set": {"cost": cost,"date":today_date_str}}
+
+    result = collection.update_one({"name":"youtubeAPI_info"}, new_values)
+    return result
+
+def search_youtube_playlist(part='snippet',id=None,playlistId=None):
+    """
+    id: id パラメータには、1 つ以上の一意の再生リスト アイテム ID をカンマ区切りのリストで指定します。
+    playlistId: playlistId パラメータは、プレイリスト アイテムを取得するプレイリストの一意の ID を指定します。これはオプションのパラメータですが、プレイリスト アイテムを取得するすべてのリクエストで、id パラメータまたは playlistId パラメータの値を指定する必要があります。
+    """
+    parameters = {
+        "part": part
+        }
+    if id != None:
+        parameters.update({"id": id})
+    if playlistId != None:
+        parameters.update({"playlistId": playlistId})
+    try:
+        response = Youtube_API_settings.youtube.playlistItems().list(**parameters).execute()
+    except Exception as e:
+        print(f"An error occurred: {e}\nParameters: {parameters}")
+        sys.exit(1)
+    # Add cost
+    add_cost(2)
+    return response
 
 def search_youtube(q=None,part='snippet',order='relevance',type=None,eventType=None,channelId=None,maxResults=50,region=None,relevanceLanguage=None,publishedAfter=None):
     """
@@ -54,6 +109,8 @@ def search_youtube(q=None,part='snippet',order='relevance',type=None,eventType=N
     except Exception as e:
         print(f"An error occurred: {e}\nParameters: {parameters}")
         sys.exit(1)
+    # Add cost
+    add_cost(100)
     return response
 
 def channel_info_youtube(part= 'statistics',channel_id=None,forUsername=None):
@@ -85,7 +142,9 @@ def channel_info_youtube(part= 'statistics',channel_id=None,forUsername=None):
     except Exception as e:
         print(f"An error occurred: {e}\nParameters: {parameters}")
         sys.exit(1)
+    add_cost(1)
     return response
+
 
 if __name__ == '__main__':
     live_channels = []
