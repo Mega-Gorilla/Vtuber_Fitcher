@@ -7,7 +7,7 @@ def search_channels(keyword='',gender=1,office=0,order=2,limit=500,non_movie=1,c
 
     keyword: 検索ワード
 
-    gender: 1-men/2-women/3-unknown/4-Babiniku/5-Femboy(男の娘)/6-bisexual(両性)/None-全選択
+    gender: 1-men/2-women/3-unknown/4-Babiniku/5-Femboy(男の娘)/6-bisexual(両性)
 
     office: 0-所属なし
 
@@ -23,7 +23,7 @@ def search_channels(keyword='',gender=1,office=0,order=2,limit=500,non_movie=1,c
     # POSTリクエストのURL
     url = 'https://vtuber-post.com/database/index.php'
 
-    gender_dict = {1: 'men', 2: 'women', 3: 'unknown', 4: 'Babiniku', 6: 'Femboy', 7: 'bisexual'}
+    gender_dict = {1: 'men', 2: 'women', 3: 'unknown', 4: 'Babiniku', 5: 'Femboy', 6: 'bisexual'}
     gender_str = gender_dict.get(gender, "unknown")
 
     # 送信するデータ (フォームデータ)
@@ -56,9 +56,14 @@ def search_channels(keyword='',gender=1,office=0,order=2,limit=500,non_movie=1,c
     soup = BeautifulSoup(response.text, 'html.parser')
 
     # 各Vtuberの情報を含むdivタグを取得
-    clipdata = soup.find('div', class_="vtuber_list heightLineParent clearfix")
-    vtuber_divs = clipdata.find_all('div', class_='clearfix')
 
+    try:
+        clipdata = soup.find('div', class_="vtuber_list heightLineParent clearfix")
+        vtuber_divs = clipdata.find_all('div', class_='clearfix')
+    except Exception as e:
+        print("エラーが発生しました:", e)
+        print(f"keyword={keyword},gender={gender},office={office},order={order},limit={limit},non_movie={non_movie},country={country}")
+        exit()
 
     # 結果を格納するためのリスト
     vtuber_list = []
@@ -94,7 +99,6 @@ def search_channels(keyword='',gender=1,office=0,order=2,limit=500,non_movie=1,c
                 "group": group
             }
             vtuber_list.append(add_data)
-            print(add_data)
 
     print(f"{len(vtuber_list)} channels fetched.")
     return vtuber_list
